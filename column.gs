@@ -1,0 +1,29 @@
+const COLUMN = {
+
+  PRODUCT_ID: 1,
+
+  PRODUCT_URL: 2,
+
+  IMAGE_URL: 3,
+
+  PRODUCT_NAME: 4,
+
+  PRODUCT_DESCRIPTION: 5,
+
+  IMAGE_TITLE: 6,
+
+  COPY: 7,
+
+  POST_TITLE: 8,
+
+  POST_TEXT: 9,
+
+  TAGS: 10,
+
+  SNS_IMAGE_URL: 11,
+
+  POSTED: 12,
+
+  ERROR: 13
+
+};
