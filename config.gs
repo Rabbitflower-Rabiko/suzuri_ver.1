@@ -50,35 +50,35 @@ const CONFIG = {
   PRODUCT_IMAGE_HEIGHT:
     850,
 
-  //=========================
-// Event Background
+//=========================
+// Background
 //=========================
 
 // 通常背景
 BACKGROUND_BASE:
   "background_base",
 
-// イベント一覧
-EVENT_BACKGROUNDS: [
 
-  // 例：SUZURIセール
-  {
+// イベント背景
+// Cloudinary側の画像だけ手動変更
+BACKGROUND_EVENT:
+  "background_event",
 
-    start:
-      "2026-10-24",
 
-    end:
-      "2026-11-02",
+// イベント期間
+EVENT_START:
+  "2026-07-20",
 
-    earlyDays:
-      4,
 
-    background:
-      "background_event"
+EVENT_END:
+  "2026-07-27",
 
-  }
 
-],
+// 告知開始日数
+// 4日前からイベント背景
+EVENT_EARLY_DAYS:
+  4,
+
 
   //=========================
   // Buffer
