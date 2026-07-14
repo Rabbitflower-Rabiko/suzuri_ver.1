@@ -62,135 +62,169 @@ function getSuzuriProducts_() {
 // 投稿対象取得
 //==============================
 
+//==================================
+// 投稿対象取得
+//==================================
+
 function getTargetProducts_() {
 
-  let products = getSuzuriProducts_();
+  //---------------------------------
+  // 全商品取得
+  //---------------------------------
+
+  let products =
+    getSuzuriProducts_();
 
   //---------------------------------
   // 未投稿のみ
   //---------------------------------
 
-  products = products.filter(function(product){
+  products =
+    products.filter(function(product){
 
-    return !isPosted_(product.id);
+      return !isPosted_(product.id);
 
-  });
+    });
 
   //---------------------------------
-  // AUTO
+  // 投稿モード別候補
   //---------------------------------
 
-  if (CONFIG.POST_MODE == "AUTO") {
+  let candidates = [];
+
+  switch (CONFIG.POST_MODE) {
+
+    //---------------------------------
+    // AUTO
+    //---------------------------------
+
+    case "AUTO":
+
+      // SALE優先
+
+      candidates =
+        products.filter(function(product){
+
+          return (
+
+            product.discountedPriceWithTax &&
+
+            product.priceWithTax &&
+
+            product.discountedPriceWithTax <
+
+            product.priceWithTax
+
+          );
+
+        });
+
+      if (candidates.length > 0) {
+
+        Logger.log("AUTO → SALE");
+
+        break;
+
+      }
+
+      // NEW
+
+      candidates =
+        getNewProducts_(products);
+
+      if (candidates.length > 0) {
+
+        Logger.log("AUTO → NEW");
+
+        break;
+
+      }
+
+      // RANDOM
+
+      Logger.log("AUTO → RANDOM");
+
+      candidates =
+        getRandomProducts_(products);
+
+      break;
 
     //---------------------------------
     // SALE
     //---------------------------------
 
-    const saleProducts = products.filter(function(product){
+    case "SALE":
 
-      return (
+      candidates =
+        products.filter(function(product){
 
-        product.discountedPriceWithTax &&
+          return (
 
-        product.priceWithTax &&
+            product.discountedPriceWithTax &&
 
-        product.discountedPriceWithTax <
+            product.priceWithTax &&
 
-        product.priceWithTax
+            product.discountedPriceWithTax <
 
-      );
+            product.priceWithTax
 
-    });
+          );
 
-    if (saleProducts.length > 0) {
+        });
 
-      Logger.log("AUTO → SALE");
-
-      return saleProducts.slice(
-
-        0,
-
-        CONFIG.POSTS_PER_RUN
-
-      );
-
-    }
+      break;
 
     //---------------------------------
     // NEW
     //---------------------------------
 
-    const newProducts = getNewProducts_(products);
+    case "NEW":
 
-    if (newProducts.length > 0) {
+      candidates =
+        getNewProducts_(products);
 
-      Logger.log("AUTO → NEW");
-
-      return newProducts;
-
-    }
+      break;
 
     //---------------------------------
     // RANDOM
     //---------------------------------
 
-    Logger.log("AUTO → RANDOM");
+    case "RANDOM":
 
-    return getRandomProducts_(products);
+      candidates =
+        getRandomProducts_(products);
 
-  }
+      break;
 
-  //---------------------------------
-  // SALE
-  //---------------------------------
+    //---------------------------------
+    // UNPOSTED
+    //---------------------------------
 
-  if (CONFIG.POST_MODE == "SALE") {
+    default:
 
-    const saleProducts = products.filter(function(product){
-
-      return (
-
-        product.discountedPriceWithTax &&
-
-        product.priceWithTax &&
-
-        product.discountedPriceWithTax <
-
-        product.priceWithTax
-
-      );
-
-    });
-
-    return saleProducts;
+      candidates =
+        products;
 
   }
 
   //---------------------------------
-  // NEW
+  // Design重複除外
   //---------------------------------
 
-  if (CONFIG.POST_MODE == "NEW") {
-
-    return getNewProducts_(products);
-
-  }
+  candidates =
+    removeRecentDesigns_(candidates);
 
   //---------------------------------
-  // RANDOM
+  // 投稿数制限
   //---------------------------------
 
-  if (CONFIG.POST_MODE == "RANDOM") {
+  return candidates.slice(
 
-    return getRandomProducts_(products);
+    0,
 
-  }
+    CONFIG.POSTS_PER_RUN
 
-  //---------------------------------
-  // UNPOSTED
-  //---------------------------------
-
-  return products;
+  );
 
 }
 
@@ -349,6 +383,16 @@ imageUrl:
     pngSampleImageUrl:
       product.pngSampleImageUrl,
 
+designKey:
+(
+  (
+    product.pngSampleImageUrl ||
+    product.sampleImageUrl ||
+    ""
+  ).match(/\/([^\/?]+?)(?:\.png|\.webp)/)
+  || [null, product.id]
+)[1],
+
     price:
       product.price,
 
@@ -481,5 +525,89 @@ function testSaleProducts() {
   }
 
   logJson_(products[0]);
+
+}
+
+//==================================
+// Design重複除外
+//==================================
+
+function removeRecentDesigns_(products) {
+
+  shuffleArray_(products);
+
+  const result = [];
+
+  const used = {};
+
+  for (const product of products) {
+
+    const obj =
+      createProductObject_(product);
+
+    // Postedシートの直近7件
+    if (isRecentDesign_(obj.designKey)) {
+
+      continue;
+
+    }
+
+    // 今回選んだ候補
+    if (used[obj.designKey]) {
+
+      continue;
+
+    }
+
+    used[obj.designKey] = true;
+
+    result.push(product);
+
+  }
+
+  return result;
+
+}
+
+//==================================
+// 配列シャッフル
+//==================================
+
+function shuffleArray_(array) {
+
+  for (
+
+    let i = array.length - 1;
+
+    i > 0;
+
+    i--
+
+  ) {
+
+    const j =
+      Math.floor(
+
+        Math.random() *
+
+        (i + 1)
+
+      );
+
+    [
+
+      array[i],
+
+      array[j]
+
+    ] = [
+
+      array[j],
+
+      array[i]
+
+    ];
+
+  }
 
 }
