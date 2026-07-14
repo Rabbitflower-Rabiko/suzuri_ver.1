@@ -1,0 +1,130 @@
+//==================================
+// Cloudinary Upload
+//==================================
+
+function uploadSuzuriImageToCloudinary_(product) {
+
+  requireConfigValue_("CLOUD_NAME");
+  requireConfigValue_("CLOUDINARY_API_KEY");
+  requireConfigValue_("CLOUDINARY_API_SECRET");
+
+  // 商品IDをPublic IDにする
+  const publicId =
+    "suzuri/" + product.id;
+
+  // 既にアップロード済みならそのまま返す
+  try {
+
+    const checkUrl =
+      "https://res.cloudinary.com/" +
+      CONFIG.CLOUD_NAME +
+      "/image/upload/" +
+      publicId;
+
+    const res = UrlFetchApp.fetch(checkUrl, {
+      muteHttpExceptions: true
+    });
+
+    if (res.getResponseCode() == 200) {
+
+      Logger.log("Cloudinary already exists.");
+
+      return publicId;
+
+    }
+
+  } catch (e) {}
+
+  //--------------------------------
+  // Signature
+  //--------------------------------
+
+  const timestamp =
+  String(Math.floor(Date.now() / 1000));
+
+  const params =
+      "public_id=" +
+      publicId +
+      "&timestamp=" +
+      timestamp +
+      CONFIG.CLOUDINARY_API_SECRET;
+
+  const signature =
+    Utilities.computeDigest(
+      Utilities.DigestAlgorithm.SHA_1,
+      params
+    )
+      .map(function (b) {
+
+        const v =
+          (b < 0 ? b + 256 : b)
+            .toString(16);
+
+        return ("0" + v).slice(-2);
+
+      })
+      .join("");
+
+  //--------------------------------
+  // Upload
+  //--------------------------------
+
+const response =
+  retry_(function () {
+
+    return UrlFetchApp.fetch(
+
+      "https://api.cloudinary.com/v1_1/" +
+      CONFIG.CLOUD_NAME +
+      "/image/upload",
+
+      {
+
+        method: "post",
+
+        payload: {
+
+          file:
+            product.pngSampleImageUrl ||
+            product.imageUrl,
+
+          public_id:
+            publicId,
+
+          api_key:
+            CONFIG.CLOUDINARY_API_KEY,
+
+          timestamp:
+            timestamp,
+
+          signature:
+            signature
+
+        },
+
+        muteHttpExceptions: true
+
+      }
+
+    );
+
+  });
+
+const json =
+  JSON.parse(response.getContentText());
+
+logJson_(json);
+
+if (json.error) {
+
+  throw new Error(
+
+    json.error.message
+
+  );
+
+}
+
+return publicId;
+
+}
