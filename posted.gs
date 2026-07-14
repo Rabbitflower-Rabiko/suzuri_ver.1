@@ -1,3 +1,4 @@
+
 //==================================
 // 投稿済み管理
 //==================================
@@ -18,10 +19,9 @@ function getPostedSheet_() {
     sheet.appendRow([
 
       "ProductID",
-
+      "DesignID",
       "Title",
-
-      "PostedAt"
+      "PostedAt",
 
     ]);
 
@@ -83,6 +83,10 @@ function isPosted_(productId) {
 // 投稿済み登録
 //==================================
 
+//==================================
+// 投稿済み登録
+//==================================
+
 function markPosted_(product) {
 
   const sheet =
@@ -92,13 +96,13 @@ function markPosted_(product) {
 
     product.id,
 
+    product.designKey,
+
     product.title,
 
     new Date()
 
   ]);
-
-setLastPostedProduct_(product.id);
 
 }
 
@@ -183,5 +187,81 @@ function setLastPostedProduct_(productId) {
       String(productId)
 
     );
+
+}
+
+//==================================
+// 最近使ったデザイン判定
+//==================================
+
+function isRecentDesign_(designKey) {
+
+  const sheet =
+    getPostedSheet_();
+
+  const lastRow =
+    sheet.getLastRow();
+
+  if (lastRow <= 1) {
+
+    return false;
+
+  }
+
+  const values =
+    sheet.getRange(
+
+      2,
+
+      2,
+
+      lastRow - 1,
+
+      1
+
+    ).getValues();
+
+  const recent =
+    values
+      .flat()
+      .slice(-7);
+
+  return recent.includes(designKey);
+
+}
+//==================================
+// 最近使ったデザイン判定
+//==================================
+
+function isRecentDesign_(designKey) {
+
+  const sheet =
+    getPostedSheet_();
+
+  const lastRow =
+    sheet.getLastRow();
+
+  if (lastRow <= 1) {
+
+    return false;
+
+  }
+
+  const values =
+    sheet.getRange(
+
+      2,
+      2,
+      lastRow - 1,
+      1
+
+    ).getValues();
+
+  const recent =
+    values
+      .flat()
+      .slice(-7);
+
+  return recent.includes(designKey);
 
 }
