@@ -1,155 +1,186 @@
 //==================================
-// 背景判定
+// Buffer v3 投稿
 //==================================
 
-function getBackgroundPublicId_(product) {
+function postToBuffer_(product, content, imageUrl) {
 
-  //---------------------------------
-  // SALE
-  //---------------------------------
+  requireConfigValue_("BUFFER_TOKEN");
+
+  const postText =
+    content.postText +
+    "\n\n" +
+    product.url +
+    "\n\n" +
+    content.hashtags;
+
+  for (const channelId of CONFIG.BUFFER_PROFILE_IDS) {
+
+    postToSingleChannel_(
+
+      channelId,
+      postText,
+      imageUrl
+
+    );
+
+  }
+
+}
+
+
+
+//==================================
+// 1チャンネル投稿
+//==================================
+
+function postToSingleChannel_(
+
+  channelId,
+  text,
+  imageUrl
+
+) {
+
+  const query = `
+mutation CreatePost(
+  $text:String!,
+  $channelId:ChannelId!,
+  $imageUrl:String!
+){
+
+  createPost(
+
+    input:{
+
+      text:$text
+      channelId:$channelId
+      schedulingType:automatic
+      mode:addToQueue
+
+      assets:[
+        {
+          image:{
+            url:$imageUrl
+          }
+        }
+      ]
+
+    }
+
+  ){
+
+    ... on PostActionSuccess{
+
+      post{
+
+        id
+
+      }
+
+    }
+
+    ... on MutationError{
+
+      message
+
+    }
+
+  }
+
+}
+`;
+
+  const variables = {
+
+    text: text,
+
+    channelId: channelId,
+
+    imageUrl: imageUrl
+
+  };
+
+  const result =
+    callBufferGraphQL_(query, variables);
+
+  logJson_(result);
+
+  if (result.errors) {
+
+    throw new Error(
+      JSON.stringify(result.errors)
+    );
+
+  }
 
   if (
-
-    product &&
-
-    product.discountedPriceWithTax &&
-
-    product.priceWithTax &&
-
-    product.discountedPriceWithTax <
-
-    product.priceWithTax
-
+    result.data &&
+    result.data.createPost &&
+    result.data.createPost.message
   ) {
 
-    Logger.log(
+    throw new Error(
+      result.data.createPost.message
+    );
 
-      "SALE Background"
+  }
+
+  return result;
+
+}
+
+//==================================
+// GraphQL
+//==================================
+
+function callBufferGraphQL_(query, variables) {
+
+  const response = retry_(function () {
+
+    return UrlFetchApp.fetch(
+
+      "https://api.buffer.com/graphql",
+
+      {
+
+        method: "post",
+
+        contentType: "application/json",
+
+        headers: {
+
+          Authorization:
+            "Bearer " +
+            CONFIG.BUFFER_TOKEN
+
+        },
+
+        payload: JSON.stringify({
+
+          query: query,
+
+          variables: variables
+
+        }),
+
+        muteHttpExceptions: true
+
+      }
 
     );
 
-    return CONFIG.BACKGROUND_EVENT;
+  });
 
-  }
-
-  //---------------------------------
-  // EVENT
-  //---------------------------------
-
-  if (isEventPeriod_()) {
-
-    Logger.log(
-
-      "EVENT Background"
-
+  const json =
+    JSON.parse(
+      response.getContentText()
     );
 
-    return CONFIG.BACKGROUND_EVENT;
+  logJson_(json);
 
-  }
-
-  //---------------------------------
-  // NORMAL
-  //---------------------------------
-
-  Logger.log(
-
-    "NORMAL Background"
-
-  );
-
-  return CONFIG.BACKGROUND_BASE;
+  return json;
 
 }
 
 
 
-//==================================
-// Cloudinary 合成画像URL
-//==================================
-
-function buildSuzuriImageUrl_(product) {
-
-  requireConfigValue_("CLOUD_NAME");
-
-  const publicId =
-    uploadSuzuriImageToCloudinary_(product);
-
-  const overlay =
-    publicId.replace(/\//g, ":");
-
-  const background =
-  getBackgroundPublicId_();
-
-  return (
-
-    "https://res.cloudinary.com/" +
-
-    CONFIG.CLOUD_NAME +
-
-    "/image/upload/" +
-
-    // 背景
-    "l_" +
-    background +
-
-    "/" +
-
-    // 商品画像
-    "l_" +
-    overlay +
-    ",c_fit,w_" +
-    CONFIG.PRODUCT_IMAGE_WIDTH +
-    ",h_" +
-    CONFIG.PRODUCT_IMAGE_HEIGHT +
-    ",g_center/" +
-
-    "fl_layer_apply/" +
-
-    background
-
-  );
-
-}
-
-//==================================
-// イベント期間判定
-//==================================
-
-function isEventPeriod_() {
-
-  if (!CONFIG.EVENT_START) {
-
-    return false;
-
-  }
-
-  const today = new Date();
-
-  today.setHours(0,0,0,0);
-
-  const start =
-    new Date(CONFIG.EVENT_START);
-
-  const end =
-    new Date(CONFIG.EVENT_END);
-
-  start.setHours(0,0,0,0);
-
-  end.setHours(23,59,59,999);
-
-  start.setDate(
-
-    start.getDate()
-
-    -
-
-    CONFIG.EVENT_EARLY_DAYS
-
-  );
-
-  return today >= start &&
-
-         today <= end;
-
-}
