@@ -1,51 +1,56 @@
 //==================================
-// 背景取得
+// 背景判定
 //==================================
 
-function getBackgroundPublicId_() {
+function getBackgroundPublicId_(product) {
 
-  const today = new Date();
+  //---------------------------------
+  // SALE
+  //---------------------------------
 
-  for (const event of CONFIG.EVENT_BACKGROUNDS) {
+  if (
 
-    const start =
-      new Date(event.start);
+    product &&
 
-    const end =
-      new Date(event.end);
+    product.discountedPriceWithTax &&
 
-    const displayStart =
-      new Date(start);
+    product.priceWithTax &&
 
-    displayStart.setDate(
+    product.discountedPriceWithTax <
 
-      displayStart.getDate() -
+    product.priceWithTax
 
-      (event.earlyDays || 0)
+  ) {
+
+    Logger.log(
+
+      "SALE Background"
 
     );
 
-    if (
-
-      today >= displayStart &&
-
-      today <= end
-
-    ) {
-
-      Logger.log(
-
-        "EVENT Background : " +
-
-        event.background
-
-      );
-
-      return event.background;
-
-    }
+    return CONFIG.BACKGROUND_EVENT;
 
   }
+
+  //---------------------------------
+  // EVENT
+  //---------------------------------
+
+  if (isEventPeriod_()) {
+
+    Logger.log(
+
+      "EVENT Background"
+
+    );
+
+    return CONFIG.BACKGROUND_EVENT;
+
+  }
+
+  //---------------------------------
+  // NORMAL
+  //---------------------------------
 
   Logger.log(
 
@@ -56,6 +61,7 @@ function getBackgroundPublicId_() {
   return CONFIG.BACKGROUND_BASE;
 
 }
+
 
 
 //==================================
@@ -103,5 +109,47 @@ function buildSuzuriImageUrl_(product) {
     background
 
   );
+
+}
+
+//==================================
+// イベント期間判定
+//==================================
+
+function isEventPeriod_() {
+
+  if (!CONFIG.EVENT_START) {
+
+    return false;
+
+  }
+
+  const today = new Date();
+
+  today.setHours(0,0,0,0);
+
+  const start =
+    new Date(CONFIG.EVENT_START);
+
+  const end =
+    new Date(CONFIG.EVENT_END);
+
+  start.setHours(0,0,0,0);
+
+  end.setHours(23,59,59,999);
+
+  start.setDate(
+
+    start.getDate()
+
+    -
+
+    CONFIG.EVENT_EARLY_DAYS
+
+  );
+
+  return today >= start &&
+
+         today <= end;
 
 }
