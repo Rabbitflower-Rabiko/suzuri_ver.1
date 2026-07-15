@@ -190,7 +190,9 @@ function testSuzuri() {
     );
 
   logJson_(product);
- Logger.log(product.designKey);
+ Logger.log(product.title);
+Logger.log(product.designKey);
+Logger.log(product.pngSampleImageUrl);
 
 }
 
