@@ -20,6 +20,7 @@ function getPostedSheet_() {
 
       "ProductID",
       "DesignID",
+      "ItemName",
       "Title",
       "PostedAt",
 
@@ -84,7 +85,7 @@ function isPosted_(productId) {
 //==================================
 
 //==================================
-// 投稿済み登録
+// Posted登録
 //==================================
 
 function markPosted_(product) {
@@ -97,6 +98,8 @@ function markPosted_(product) {
     product.id,
 
     product.designKey,
+
+    product.item.name,
 
     product.title,
 
@@ -190,8 +193,9 @@ function setLastPostedProduct_(productId) {
 
 }
 
+
 //==================================
-// 最近使ったデザイン判定
+// Designが最近投稿されたか
 //==================================
 
 function isRecentDesign_(designKey) {
@@ -199,69 +203,131 @@ function isRecentDesign_(designKey) {
   const sheet =
     getPostedSheet_();
 
-  const lastRow =
-    sheet.getLastRow();
+  const values =
+    sheet.getDataRange().getValues();
 
-  if (lastRow <= 1) {
+  const now =
+    new Date();
 
-    return false;
+  for (let i = 1; i < values.length; i++) {
+
+    if (values[i][1] != designKey) {
+
+      continue;
+
+    }
+
+    const posted =
+      new Date(values[i][4]);
+
+    const diff =
+
+      (now - posted)
+
+      /
+
+      86400000;
+
+    if (
+
+      diff < CONFIG.DESIGN_DAYS
+
+    ) {
+
+      return true;
+
+    }
 
   }
 
+  return false;
+
+}
+
+
+//==================================
+// Item 7日以内
+//==================================
+
+//==================================
+// Itemが最近投稿されたか
+//==================================
+
+function isRecentItem_(itemName) {
+
+  const sheet =
+    getPostedSheet_();
+
   const values =
-    sheet.getRange(
+    sheet.getDataRange().getValues();
 
-      2,
+  const now =
+    new Date();
 
-      2,
+  for (let i = 1; i < values.length; i++) {
 
-      lastRow - 1,
+    if (values[i][2] != itemName) {
 
-      1
+      continue;
 
-    ).getValues();
+    }
 
-  const recent =
-    values
-      .flat()
-      .slice(-7);
+    const posted =
+      new Date(values[i][4]);
 
-  return recent.includes(designKey);
+    const diff =
+
+      (now - posted)
+
+      /
+
+      86400000;
+
+    if (
+
+      diff < CONFIG.ITEM_DAYS
+
+    ) {
+
+      return true;
+
+    }
+
+  }
+
+  return false;
 
 }
 //==================================
-// 最近使ったデザイン判定
+// Design除外
 //==================================
 
-function isRecentDesign_(designKey) {
+function removeRecentDesigns_(products){
 
-  const sheet =
-    getPostedSheet_();
+  return products.filter(function(product){
 
-  const lastRow =
-    sheet.getLastRow();
+    const obj =
+      createProductObject_(product);
 
-  if (lastRow <= 1) {
+    return !isRecentDesign_(obj.designKey);
 
-    return false;
+  });
 
-  }
+}
+//==================================
+// Item除外
+//==================================
 
-  const values =
-    sheet.getRange(
+function removeRecentItems_(products){
 
-      2,
-      2,
-      lastRow - 1,
-      1
+  return products.filter(function(product){
 
-    ).getValues();
+    return !isRecentItem_(
 
-  const recent =
-    values
-      .flat()
-      .slice(-7);
+      product.item.name
 
-  return recent.includes(designKey);
+    );
+
+  });
 
 }
