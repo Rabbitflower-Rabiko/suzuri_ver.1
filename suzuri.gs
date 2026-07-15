@@ -54,13 +54,8 @@ function getSuzuriProducts_() {
   );
 
 });
-
 }
 
-
-//==============================
-// 投稿対象取得
-//==============================
 
 //==================================
 // 投稿対象取得
@@ -72,22 +67,16 @@ function getTargetProducts_() {
   // 全商品取得
   //---------------------------------
 
-  let products =
-    getSuzuriProducts_();
+  const products =
 
-  //---------------------------------
-  // 未投稿のみ
-  //---------------------------------
-
-  products =
-    products.filter(function(product){
+    getSuzuriProducts_().filter(function(product){
 
       return !isPosted_(product.id);
 
     });
 
   //---------------------------------
-  // 投稿モード別候補
+  // 投稿モード
   //---------------------------------
 
   let candidates = [];
@@ -95,130 +84,125 @@ function getTargetProducts_() {
   switch (CONFIG.POST_MODE) {
 
     //---------------------------------
-    // AUTO
+// AUTO
+//---------------------------------
+
+case "AUTO":
+
+  //---------------------------------
+  // SALE
+  //---------------------------------
+
+  candidates =
+    products.filter(function(product){
+
+      return (
+
+        product.discountedPriceWithTax &&
+
+        product.priceWithTax &&
+
+        product.discountedPriceWithTax <
+
+        product.priceWithTax
+
+      );
+
+    });
+
+  if (candidates.length > 0) {
+
+    Logger.log("AUTO → SALE");
+
+    break;
+
+  }
+
+  //---------------------------------
+  // RANDOM
+  //---------------------------------
+
+  Logger.log("AUTO → RANDOM");
+
+  candidates =
+    getRandomProducts_(products);
+
+  break;
     //---------------------------------
-
-    case "AUTO":
-
-      // SALE優先
-
-      candidates =
-        products.filter(function(product){
-
-          return (
-
-            product.discountedPriceWithTax &&
-
-            product.priceWithTax &&
-
-            product.discountedPriceWithTax <
-
-            product.priceWithTax
-
-          );
-
-        });
-
-      if (candidates.length > 0) {
-
-        Logger.log("AUTO → SALE");
-
-        break;
-
-      }
-
-      // NEW
-
-      candidates =
-        getNewProducts_(products);
-
-      if (candidates.length > 0) {
-
-        Logger.log("AUTO → NEW");
-
-        break;
-
-      }
-
-      // RANDOM
-
-      Logger.log("AUTO → RANDOM");
-
-      candidates =
-        getRandomProducts_(products);
-
-      break;
-
-    //---------------------------------
-    // SALE
-    //---------------------------------
-
-    case "SALE":
-
-      candidates =
-        products.filter(function(product){
-
-          return (
-
-            product.discountedPriceWithTax &&
-
-            product.priceWithTax &&
-
-            product.discountedPriceWithTax <
-
-            product.priceWithTax
-
-          );
-
-        });
-
-      break;
-
-    //---------------------------------
-    // NEW
-    //---------------------------------
-
-    case "NEW":
-
-      candidates =
-        getNewProducts_(products);
-
-      break;
-
-    //---------------------------------
-    // RANDOM
-    //---------------------------------
-
-    case "RANDOM":
-
-      candidates =
-        getRandomProducts_(products);
-
-      break;
-
-    //---------------------------------
-    // UNPOSTED
+    // 全件
     //---------------------------------
 
     default:
 
       candidates =
+
         products;
 
   }
 
   //---------------------------------
-  // Design重複除外
+  // Design除外
   //---------------------------------
 
-  candidates =
+  let filtered =
+
     removeRecentDesigns_(candidates);
 
   //---------------------------------
-  // 投稿数制限
+  // Item除外
   //---------------------------------
 
-  return candidates.slice(
+  filtered =
+
+    removeRecentItems_(filtered);
+
+  //---------------------------------
+  // Item解除
+  //---------------------------------
+
+  if (filtered.length == 0) {
+
+    Logger.log(
+
+      "Item解除"
+
+    );
+
+    filtered =
+
+      removeRecentDesigns_(candidates);
+
+  }
+
+  
+
+  //---------------------------------
+  // まだ無い
+  //---------------------------------
+
+  if (filtered.length == 0) {
+
+    Logger.log(
+
+      "候補なし"
+
+    );
+
+    return [];
+
+  }
+
+  //---------------------------------
+  // シャッフル
+  //---------------------------------
+
+  shuffleArray_(filtered);
+
+  //---------------------------------
+  // 投稿数
+  //---------------------------------
+
+  return filtered.slice(
 
     0,
 
@@ -248,7 +232,7 @@ function getRandomProducts_(products) {
   }
 
   //---------------------------------
-  // 前回投稿商品を除外
+  // 前回投稿商品除外
   //---------------------------------
 
   const lastProductId =
@@ -261,10 +245,6 @@ function getRandomProducts_(products) {
 
     });
 
-  //---------------------------------
-  // 全部除外された場合
-  //---------------------------------
-
   if (candidates.length == 0) {
 
     candidates = products.slice();
@@ -275,37 +255,66 @@ function getRandomProducts_(products) {
   // シャッフル
   //---------------------------------
 
-  for (
+  shuffleArray_(candidates);
 
-    let i = candidates.length - 1;
+  //---------------------------------
+  // アイテム種類を散らす
+  //---------------------------------
 
-    i > 0;
+  const usedItems = {};
 
-    i--
+  const result = [];
 
-  ) {
+  for (const product of candidates) {
 
-    const j =
-      Math.floor(
-        Math.random() * (i + 1)
-      );
+    const item =
+      product.item.name;
 
-    const tmp =
-      candidates[i];
+    if (!usedItems[item]) {
 
-    candidates[i] =
-      candidates[j];
+      usedItems[item] = true;
 
-    candidates[j] =
-      tmp;
+      result.push(product);
+
+    }
 
   }
 
   //---------------------------------
-  // 投稿数分返す
+  // 足りない分追加
   //---------------------------------
 
-  return candidates.slice(
+  for (const product of candidates) {
+
+    if (
+
+      result.length >=
+
+      CONFIG.POSTS_PER_RUN
+
+    ) {
+
+      break;
+
+    }
+
+    if (
+
+      result.indexOf(product) == -1
+
+    ) {
+
+      result.push(product);
+
+    }
+
+  }
+
+  //---------------------------------
+  // 投稿数
+  //---------------------------------
+
+  return result.slice(
 
     0,
 
@@ -325,10 +334,14 @@ function getRandomProducts_(products) {
 
 function getNewProducts_(products) {
 
+  //---------------------------------
+  // 新しい順
+  //---------------------------------
+
   const copy =
     products.slice();
 
-  copy.sort(function(a, b) {
+  copy.sort(function(a, b){
 
     return (
 
@@ -340,7 +353,36 @@ function getNewProducts_(products) {
 
   });
 
-  return copy.slice(
+  //---------------------------------
+  // Designごとに最新だけ残す
+  //---------------------------------
+
+  const usedDesigns = {};
+
+  const result = [];
+
+  for (const product of copy) {
+
+    const designKey =
+      createProductObject_(product).designKey;
+
+    if (usedDesigns[designKey]) {
+
+      continue;
+
+    }
+
+    usedDesigns[designKey] = true;
+
+    result.push(product);
+
+  }
+
+  //---------------------------------
+  // 投稿数
+  //---------------------------------
+
+  return result.slice(
 
     0,
 
@@ -357,6 +399,9 @@ function getNewProducts_(products) {
 //==============================
 
 function createProductObject_(product) {
+
+  Logger.log(product.sampleUrl);
+Logger.log(product.url);
 
   return {
 
@@ -386,10 +431,9 @@ imageUrl:
 designKey:
 (
   (
-    product.pngSampleImageUrl ||
-    product.sampleImageUrl ||
+    product.sampleUrl ||
     ""
-  ).match(/\/([^\/?]+?)(?:\.png|\.webp)/)
+  ).match(/\/(\d+)\//)
   || [null, product.id]
 )[1],
 
