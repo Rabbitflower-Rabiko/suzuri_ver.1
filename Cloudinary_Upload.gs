@@ -1,3 +1,4 @@
+
 //==================================
 // Cloudinary Upload
 //==================================
@@ -11,6 +12,21 @@ function uploadSuzuriImageToCloudinary_(product) {
   // 商品IDをPublic IDにする
   const publicId =
     "suzuri/" + product.id;
+    
+//--------------------------------
+// シートで管理
+//--------------------------------
+
+if (isCloudinaryUploaded_(product.id)) {
+
+  Logger.log(
+    "Cloudinary cache : " +
+    product.id
+  );
+
+  return publicId;
+
+}
 
   // 既にアップロード済みならそのまま返す
   try {
@@ -29,7 +45,9 @@ function uploadSuzuriImageToCloudinary_(product) {
 
       Logger.log("Cloudinary already exists.");
 
-      return publicId;
+markCloudinaryUploaded_(product.id);
+
+return publicId;
 
     }
 
@@ -128,3 +146,4 @@ if (json.error) {
 return publicId;
 
 }
+
