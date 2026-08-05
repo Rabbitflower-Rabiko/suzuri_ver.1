@@ -8,7 +8,9 @@ const CONFIG = {
     "",
 
   SUZURI_USER_NAME:
-    "",
+    "Rabbitflower",
+
+  SUZURI_SHEET_NAME : "商品一覧",  
 
   POSTS_PER_RUN:
     1,
@@ -20,6 +22,9 @@ const CONFIG = {
   // UNPOSTED
   POST_MODE:
     "AUTO",
+
+    // 直近何デザインを除外するか
+RECENT_DESIGN_LIMIT: 7,
 
   //=========================
   // Gemini
@@ -65,6 +70,7 @@ BACKGROUND_EVENT:
   "background_event",
 
 
+
 // イベント期間
 EVENT_START:
   "2026-07-24",
@@ -78,6 +84,8 @@ EVENT_END:
 // 4日前からイベント背景
 EVENT_EARLY_DAYS:
   0,
+
+
 
 
   //=========================
@@ -119,5 +127,42 @@ DESIGN_DAYS:
 // Itemを空ける日数
 ITEM_DAYS:
   7,
+
+//=========================
+// Design
+//=========================
+
+// 直近何投稿まで
+DESIGN_POSTS: 7
 };
 
+//==================================
+// セール対象商品
+//==================================
+
+const SALE_ITEMS = [
+
+"スタンダードTシャツ",
+"ライトウェイトTシャツ",
+"ワンポイントTシャツ",
+"オーバーサイズTシャツ",
+"ヘビーウェイトTシャツ",
+"フルグラフィックTシャツ",
+"ロングスリーブTシャツ",
+"ビッグシルエットTシャツ",
+"ビッグシルエットロングスリーブTシャツ",
+"オーガニックコットンTシャツ",
+"ドライTシャツ",
+"United Athle 5.6oz ラグラン ロングスリーブTシャツ（1.6インチリブ）",
+"Printstar 5.6oz ヘビーウェイトビッグシルエット長袖Tシャツ",
+"United Athle 4.1oz ドライアスレチック ルーズフィット ラインリブTシャツ",
+"American Apparel 6.0oz ヘビーウェイトコットン長袖Tシャツ",
+"GLIMMER 4.4oz ドライ 長袖Tシャツ",
+"Cross Stitch オープンエンドマックスウェイト メンズオーバーTシャツ",
+"United Athle 4.1oz ドライアスレチックTシャツ",
+"TRUSS 8.1oz USAコットンTシャツ",
+"United Athle 9.1oz マグナムウェイトビッグシルエットTシャツ",
+"SHAKA WEAR 7.5oz ヘビーウェイトTシャツ",
+"SHAKA WEAR 7.5oz ドロップショルダーTシャツ"
+
+];
