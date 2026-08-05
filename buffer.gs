@@ -1,3 +1,4 @@
+
 //==================================
 // Buffer v3 投稿
 //==================================
@@ -181,6 +182,3 @@ function callBufferGraphQL_(query, variables) {
   return json;
 
 }
-
-
-
