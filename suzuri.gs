@@ -1,611 +1,719 @@
-//==============================
-// SUZURI API
-//==============================
 
-function getSuzuriProducts_() {
 
-  requireConfigValue_("SUZURI_ACCESS_TOKEN");
-  requireConfigValue_("SUZURI_USER_NAME");
+const t1 = Date.now();
 
-  const url =
-    "https://suzuri.jp/api/v1/products?userName=" +
-    encodeURIComponent(CONFIG.SUZURI_USER_NAME);
+//==================================
+// Main
+//==================================
+const allProducts = getProductList_();
 
-  const response = retry_(function () {
+Logger.log("全商品数=" + allProducts.length);
+Logger.log(allProducts[0]);
 
-    return UrlFetchApp.fetch(url, {
-
-      method: "get",
-
-      headers: {
-
-        Authorization:
-          "Bearer " +
-          CONFIG.SUZURI_ACCESS_TOKEN
-
-      },
-
-      muteHttpExceptions: true
-
-    });
-
-  });
-
-  if (response.getResponseCode() != 200) {
-
-    throw new Error(response.getContentText());
-
-  }
-
-  const json =
-    JSON.parse(response.getContentText());
-
-  if (!json.products) {
-
-    throw new Error("商品が取得できませんでした。");
-
-  }
-
- return json.products.filter(function(product) {
+let products = allProducts.filter(function(product){
 
   return (
-    product.published === true &&
-    product.secret === false
+    product["投稿"] != "済" &&
+    String(product["公開"]) == "TRUE"
   );
 
 });
-}
 
+Logger.log(
+  "商品一覧取得 = " +
+  ((Date.now() - t1) / 1000).toFixed(1) +
+  " 秒"
+);
 
 //==================================
-// 投稿対象取得
+// SUZURI 自動投稿
 //==================================
 
-function getTargetProducts_() {
+function runSuzuriAutoPromotion() {
 
-  //---------------------------------
-  // 全商品取得
-  //---------------------------------
+const start = Date.now();
 
-  const products =
+  Logger.log("===== SUZURI START =====");
 
-    getSuzuriProducts_().filter(function(product){
+  checkConfig_();
 
-      return !isPosted_(product.id);
+  resetPostedIfFinished_();
 
-    });
+  Logger.log(
+    "POST MODE : " +
+    CONFIG.POST_MODE
+  );
 
-  //---------------------------------
-  // 投稿モード
-  //---------------------------------
+  let products =
+    getProductList_().filter(function(product){
 
-  let candidates = [];
-
-  switch (CONFIG.POST_MODE) {
-
-    //---------------------------------
-// AUTO
-//---------------------------------
-
-case "AUTO":
-
-  //---------------------------------
-  // SALE
-  //---------------------------------
-
-  candidates =
-    products.filter(function(product){
+      const isPublic =
+        product["公開"] === true ||
+        String(product["公開"]).toLowerCase() == "true";
 
       return (
-
-        product.discountedPriceWithTax &&
-
-        product.priceWithTax &&
-
-        product.discountedPriceWithTax <
-
-        product.priceWithTax
-
+        product["投稿"] != "済" &&
+        isPublic
       );
 
     });
 
-  if (candidates.length > 0) {
-
-    Logger.log("AUTO → SALE");
-
-    break;
-
-  }
-
-  //---------------------------------
-  // RANDOM
-  //---------------------------------
-
-  Logger.log("AUTO → RANDOM");
-
-  candidates =
-    getRandomProducts_(products);
-
-  break;
-    //---------------------------------
-    // 全件
-    //---------------------------------
-
-    default:
-
-      candidates =
-
-        products;
-
-  }
-
-  //---------------------------------
-  // Design除外
-  //---------------------------------
-
-  let filtered =
-
-    removeRecentDesigns_(candidates);
-
-  //---------------------------------
-  // Item除外
-  //---------------------------------
-
-  filtered =
-
-    removeRecentItems_(filtered);
-
-  //---------------------------------
-  // Item解除
-  //---------------------------------
-
-  if (filtered.length == 0) {
-
-    Logger.log(
-
-      "Item解除"
-
-    );
-
-    filtered =
-
-      removeRecentDesigns_(candidates);
-
-  }
-
-  
-
-  //---------------------------------
-  // まだ無い
-  //---------------------------------
-
-  if (filtered.length == 0) {
-
-    Logger.log(
-
-      "候補なし"
-
-    );
-
-    return [];
-
-  }
-
-  //---------------------------------
-  // シャッフル
-  //---------------------------------
-
-  shuffleArray_(filtered);
-
-  //---------------------------------
-  // 投稿数
-  //---------------------------------
-
-  return filtered.slice(
-
-    0,
-
-    CONFIG.POSTS_PER_RUN
-
-  );
-
-}
-
-
-
-
-//==============================
-// ランダム投稿
-//==============================
-
-//==============================
-// 未投稿商品からランダム取得
-//==============================
-
-function getRandomProducts_(products) {
-
   if (!products.length) {
 
-    return [];
+    Logger.log("投稿対象がありません。");
+
+    return;
 
   }
 
-  //---------------------------------
-  // 前回投稿商品除外
-  //---------------------------------
+//----------------------------------
+// イベント期間中は対象商品のみに限定
+//----------------------------------
 
-  const lastProductId =
-    getLastPostedProduct_();
+if (isEventPeriod_()) {
 
-  let candidates =
-    products.filter(function(product){
+  products = products.filter(function(product){
 
-      return String(product.id) != String(lastProductId);
+    return SALE_ITEMS.includes(
 
-    });
-
-  if (candidates.length == 0) {
-
-    candidates = products.slice();
-
-  }
-
-  //---------------------------------
-  // シャッフル
-  //---------------------------------
-
-  shuffleArray_(candidates);
-
-  //---------------------------------
-  // アイテム種類を散らす
-  //---------------------------------
-
-  const usedItems = {};
-
-  const result = [];
-
-  for (const product of candidates) {
-
-    const item =
-      product.item.name;
-
-    if (!usedItems[item]) {
-
-      usedItems[item] = true;
-
-      result.push(product);
-
-    }
-
-  }
-
-  //---------------------------------
-  // 足りない分追加
-  //---------------------------------
-
-  for (const product of candidates) {
-
-    if (
-
-      result.length >=
-
-      CONFIG.POSTS_PER_RUN
-
-    ) {
-
-      break;
-
-    }
-
-    if (
-
-      result.indexOf(product) == -1
-
-    ) {
-
-      result.push(product);
-
-    }
-
-  }
-
-  //---------------------------------
-  // 投稿数
-  //---------------------------------
-
-  return result.slice(
-
-    0,
-
-    CONFIG.POSTS_PER_RUN
-
-  );
-
-}
-
-//==============================
-// 新しい順
-//==============================
-
-//==============================
-// 新しい順
-//==============================
-
-function getNewProducts_(products) {
-
-  //---------------------------------
-  // 新しい順
-  //---------------------------------
-
-  const copy =
-    products.slice();
-
-  copy.sort(function(a, b){
-
-    return (
-
-      new Date(b.publishedAt) -
-
-      new Date(a.publishedAt)
+      product["商品種類"]
 
     );
 
   });
 
-  //---------------------------------
-  // Designごとに最新だけ残す
-  //---------------------------------
+  products.forEach(function(product){
 
-  const usedDesigns = {};
+  Logger.log(
+    "SALE候補 : " +
+    product["商品種類"] +
+    " / " +
+    product["商品名"]
+  );
 
-  const result = [];
+});
 
-  for (const product of copy) {
+  Logger.log(
 
-    const designKey =
-      createProductObject_(product).designKey;
+    "イベント対象商品数 = " +
 
-    if (usedDesigns[designKey]) {
+    products.length
 
-      continue;
+  );
 
-    }
+}
 
-    usedDesigns[designKey] = true;
+  shuffleArray_(products);
 
-    result.push(product);
+  products =
+    removeRecentDesigns_(products);
 
-  }
+ 
 
-  //---------------------------------
-  // 投稿数
-  //---------------------------------
+  const count =
+    Math.min(
+      CONFIG.POSTS_PER_RUN,
+      products.length
+    );
 
-  return result.slice(
+for (let i = 0; i < count; i++) {
 
-    0,
+  const t3 = Date.now();
 
-    CONFIG.POSTS_PER_RUN
+  processProduct_(
 
+    createProductObject_(
+
+      products[i]
+
+    )
+
+  );
+
+  Logger.log(
+    "投稿処理 = " +
+    ((Date.now() - t3) / 1000).toFixed(1) +
+    " 秒"
   );
 
 }
 
 
 
-//==============================
-// 商品情報変換
-//==============================
+}
 
-function createProductObject_(product) {
+//==================================
+// 商品一覧取得
+//==================================
 
-  Logger.log(product.sampleUrl);
-Logger.log(product.url);
+function getProductList_() {
+
+  const sheet = getProductSheet_();
+
+  const values =
+    sheet.getDataRange().getValues();
+
+  if (values.length <= 1) {
+
+    return [];
+
+  }
+
+  const header =
+    values.shift();
+
+  return values.map(function(row){
+
+    const obj = {};
+
+    header.forEach(function(name,index){
+
+      obj[name] = row[index];
+
+    });
+
+    return obj;
+
+  });
+
+}
+
+
+//==================================
+// 商品シート取得
+//==================================
+
+function getProductSheet_(){
+
+  const ss =
+    SpreadsheetApp.getActiveSpreadsheet();
+
+  return ss.getSheetByName("商品一覧");
+
+}
+
+//==================================
+// 投稿済みにする
+//==================================
+
+//==================================
+// 投稿済みにする（高速版）
+//==================================
+
+function markPosted_(productId){
+
+  const sheet = getProductSheet_();
+
+  const header =
+    sheet.getRange(1,1,1,sheet.getLastColumn())
+         .getValues()[0];
+
+  const idCol =
+    header.indexOf("商品ID") + 1;
+
+  const postCol =
+    header.indexOf("投稿") + 1;
+
+  const dateCol =
+    header.indexOf("投稿日時") + 1;
+
+  if(idCol <= 0 || postCol <= 0){
+
+    throw new Error(
+      "商品ID または 投稿 列がありません。"
+    );
+
+  }
+
+  const cell =
+    sheet
+      .getRange(2,idCol,sheet.getLastRow()-1,1)
+      .createTextFinder(String(productId))
+      .matchEntireCell(true)
+      .findNext();
+
+  if(!cell){
+
+    Logger.log(
+      "商品IDが見つかりません : " +
+      productId
+    );
+
+    return;
+
+  }
+
+  const row =
+    cell.getRow();
+
+  sheet
+    .getRange(row,postCol)
+    .setValue("済");
+
+  if(dateCol > 0){
+
+    sheet
+      .getRange(row,dateCol)
+      .setValue(new Date());
+
+  }
+
+  Logger.log(
+    "投稿済みに更新 : " +
+    productId
+  );
+
+}
+
+//==================================
+// 商品情報変換（シート版）
+//==================================
+
+function createProductObject_(row){
 
   return {
 
     id:
-      product.id,
+      row["商品ID"],
 
     title:
-      product.title,
+      row["商品名"],
 
     description:
-      product.description || "",
+      row["説明"] || "",
 
     url:
-      product.sampleUrl,
+      row["商品URL"],
+
+    imageUrl:
+      row["画像URL"],
 
     imageUrls:
-  product.sampleImageUrls || [],
-
-imageUrl:
-  getRandomSampleImage_(product),
-
-  
+      [row["画像URL"]],
 
     pngSampleImageUrl:
-      product.pngSampleImageUrl,
+      row["画像URL"],
 
-designKey:
-(
-  (
-    product.sampleUrl ||
-    ""
-  ).match(/\/(\d+)\//)
-  || [null, product.id]
-)[1],
+    DesignID:
+      row["DesignID"],
 
     price:
-      product.price,
-
+      Number(row["価格"] || 0),
 
     publishedAt:
-      product.publishedAt,
+      row["公開日"],
 
+    priceWithTax:
+      Number(row["税込価格"] || 0),
 
-priceWithTax:
-  product.priceWithTax,
+    discountedPriceWithTax:
+      Number(row["セール価格"] || 0),
 
-discountedPriceWithTax:
-  product.discountedPriceWithTax,
+    item:{
 
-item: {
+      id:
+        row["商品種類ID"],
 
-  name:
-    product.item.name,
+      name:
+        row["商品種類"],
 
-  humanizeName:
-    product.item.humanizeName
+      humanizeName:
+        row["商品種類"]
 
-}
-    
+    }
 
   };
 
 }
 
 //==================================
-// ランダム画像取得
+// SUZURI テスト
 //==================================
 
-function getRandomSampleImage_(product) {
+function testSuzuri() {
 
-  const images =
-    product.sampleImageUrls || [];
+  const list =
+    getProductList_();
 
-  if (!images.length) {
+  if (list.length == 0) {
 
-    return product.sampleImageUrl;
-
-  }
-
-  const index =
-    Math.floor(
-      Math.random() * images.length
-    );
-
-  return images[index];
-
-}
-
-//==============================
-// セール商品取得
-//==============================
-
-function getSaleProducts_() {
-
-  requireConfigValue_("SUZURI_ACCESS_TOKEN");
-
-  const response =
-    retry_(function () {
-
-      return UrlFetchApp.fetch(
-
-        "https://suzuri.jp/api/v1/products/on_sale",
-
-        {
-
-          method: "get",
-
-          headers: {
-
-            Authorization:
-              "Bearer " +
-              CONFIG.SUZURI_ACCESS_TOKEN
-
-          },
-
-          muteHttpExceptions: true
-
-        }
-
-      );
-
-    });
-
-  if (response.getResponseCode() != 200) {
-
-    throw new Error(
-
-      response.getContentText()
-
-    );
+    throw new Error("商品一覧シートが空です");
 
   }
 
-  return JSON.parse(
+  const product =
+    createProductObject_(
+      list[0]
+    );
 
-    response.getContentText()
+  logJson_(product);
 
-  ).products || [];
+  Logger.log(product.title);
+  Logger.log(product.DesignID);
+  Logger.log(product.imageUrl);
 
 }
 
 //==================================
-// セール商品テスト
+// Gemini テスト
 //==================================
 
-function testSaleProducts() {
+function testGemini() {
 
-  const products =
-    getSaleProducts_();
+  const list =
+    getProductList_();
 
-  Logger.log(
+  if (!list.length) {
 
-    "セール商品数 : " +
+    throw new Error("商品一覧シートが空です");
 
-    products.length
+  }
+
+  const product =
+    createProductObject_(
+      list[0]
+    );
+
+  logJson_(
+
+    generateSuzuriContent_(product)
 
   );
 
-  if (products.length == 0) {
+}
 
-    Logger.log("セール商品なし");
+//==================================
+// Cloudinary テスト
+//==================================
 
-    return;
+function testCloudinary() {
+
+  const list =
+    getProductList_();
+
+  if (!list.length) {
+
+    throw new Error("商品一覧シートが空です");
 
   }
 
-  logJson_(products[0]);
+  const product =
+    createProductObject_(
+      list[0]
+    );
+
+  Logger.log(product);
+
+  const imageUrl =
+    buildSuzuriImageUrl_(product);
+
+  Logger.log("完成画像URL");
+
+  Logger.log(imageUrl);
+
+}
+
+
+
+//==================================
+// Buffer テスト
+//==================================
+
+function testBuffer() {
+
+  const list =
+    getProductList_();
+
+  if (!list.length) {
+
+    throw new Error("商品一覧シートが空です");
+
+  }
+
+  const product =
+    createProductObject_(
+      list[0]
+    );
+
+  Logger.log(product);
+
+  const content =
+    generateSuzuriContent_(product);
+
+  const imageUrl =
+    buildSuzuriImageUrl_(product);
+
+  postToBuffer_(
+
+    product,
+
+    content,
+
+    imageUrl
+
+  );
 
 }
 
 //==================================
-// Design重複除外
+// SUZURI商品 全件取得
 //==================================
 
-function removeRecentDesigns_(products) {
+function getSuzuriProducts_() {
 
-  shuffleArray_(products);
+  requireConfigValue_("SUZURI_ACCESS_TOKEN");
+  requireConfigValue_("SUZURI_USER_NAME");
+
+  const allProducts = [];
+
+  let offset = 0;
+
+  while (true) {
+
+    const url =
+      "https://suzuri.jp/api/v1/products" +
+      "?userName=" +
+      encodeURIComponent(CONFIG.SUZURI_USER_NAME) +
+      "&limit=50" +
+      "&offset=" + offset;
+
+    const response = retry_(function(){
+
+      return UrlFetchApp.fetch(url,{
+
+        method:"get",
+
+        headers:{
+          Authorization:
+            "Bearer " +
+            CONFIG.SUZURI_ACCESS_TOKEN
+        },
+
+        muteHttpExceptions:true
+
+      });
+
+    });
+
+    if(response.getResponseCode()!=200){
+
+      throw new Error(response.getContentText());
+
+    }
+
+    const json =
+      JSON.parse(response.getContentText());
+
+    const products =
+      json.products || [];
+
+    if(products.length==0){
+
+      break;
+
+    }
+
+    allProducts.push.apply(
+      allProducts,
+      products
+    );
+
+    Logger.log(
+      "取得：" +
+      allProducts.length +
+      "件"
+    );
+
+    if(products.length<50){
+
+      break;
+
+    }
+
+    offset += 50;
+
+  }
+
+  Logger.log(
+    "総取得数：" +
+    allProducts.length
+  );
+
+  return allProducts;
+
+}
+
+//==================================
+// 商品一覧更新
+//==================================
+
+function updateProductSheet_() {
+
+  const products = getSuzuriProducts_();
+
+  const sheet = getProductSheet_();
+
+  const values = sheet.getDataRange().getValues();
+
+  const header = values[0];
+
+  const map = {};
+
+  for (let i = 1; i < values.length; i++) {
+
+    map[String(values[i][0])] = i + 1;
+
+  }
+
+  products.forEach(function(product){
+
+    const row = [
+
+      product.id,
+
+      product.title,
+
+      product.sampleUrl,
+
+      product.sampleImageUrl,
+
+      product.priceWithTax,
+
+      product.discountedPriceWithTax,
+
+      product.published,
+
+      ""
+
+    ];
+
+    if (map[String(product.id)]) {
+
+      const postStatus =
+        sheet.getRange(
+          map[String(product.id)],
+          8
+        ).getValue();
+
+      row[7] = postStatus;
+
+      sheet.getRange(
+        map[String(product.id)],
+        1,
+        1,
+        row.length
+      ).setValues([row]);
+
+    } else {
+
+      sheet.appendRow(row);
+
+    }
+
+  });
+
+  Logger.log(
+    "商品一覧更新完了：" +
+    products.length +
+    "件"
+  );
+
+}
+
+//==================================
+// DesignID更新
+//==================================
+
+function updateDesignIds_(){
+
+  const sheet = getProductSheet_();
+
+  const values =
+    sheet.getDataRange().getValues();
+
+  if(values.length<=1){
+    return;
+  }
+
+  const header = values[0];
+
+  const urlCol =
+    header.indexOf("商品URL");
+
+  const designCol =
+    header.indexOf("DesignID");
+
+  if(urlCol==-1){
+    throw new Error("商品URL列がありません");
+  }
+
+  if(designCol==-1){
+    throw new Error("DesignID列を追加してください");
+  }
+
+  for(let i=1;i<values.length;i++){
+
+    const url =
+      String(values[i][urlCol] || "");
+
+    const m =
+      url.match(/\/(\d+)\//);
+
+    if(m){
+
+      sheet.getRange(
+        i+1,
+        designCol+1
+      ).setValue(m[1]);
+
+    }
+
+  }
+
+}
+//==================================
+// 最近使ったDesignID取得
+//==================================
+
+function getRecentDesignIds_(){
+
+  const sheet = getProductSheet_();
+
+  const values =
+    sheet.getDataRange().getValues();
+
+  if(values.length<=1){
+    return [];
+  }
+
+  const header = values[0];
+
+  const designCol =
+    header.indexOf("DesignID");
+
+  const postCol =
+    header.indexOf("投稿");
 
   const result = [];
 
-  const used = {};
+  for(let i=values.length-1;i>=1;i--){
 
-  for (const product of products) {
-
-    const obj =
-      createProductObject_(product);
-
-    // Postedシートの直近7件
-    if (isRecentDesign_(obj.designKey)) {
-
+    if(values[i][postCol]!="済"){
       continue;
+    }
+
+    const id =
+      String(values[i][designCol]);
+
+    if(id){
+
+      result.push(id);
 
     }
 
-    // 今回選んだ候補
-    if (used[obj.designKey]) {
-
-      continue;
-
+    if(result.length>=CONFIG.RECENT_DESIGN_LIMIT){
+      break;
     }
-
-    used[obj.designKey] = true;
-
-    result.push(product);
 
   }
 
@@ -613,45 +721,53 @@ function removeRecentDesigns_(products) {
 
 }
 
+const t2 = Date.now();
 //==================================
-// 配列シャッフル
+// Design重複除外
 //==================================
 
-function shuffleArray_(array) {
+function removeRecentDesigns_(products){
 
-  for (
+  const recent =
+    getRecentDesignIds_();
 
-    let i = array.length - 1;
+  return products.filter(function(product){
 
-    i > 0;
+    return recent.indexOf(
+      String(product["DesignID"])
+    )==-1;
 
-    i--
-
-  ) {
-
-    const j =
-      Math.floor(
-
-        Math.random() *
-
-        (i + 1)
-
-      );
-
-    [
-
-      array[i],
-
-      array[j]
-
-    ] = [
-
-      array[j],
-
-      array[i]
-
-    ];
-
-  }
+  });
 
 }
+
+Logger.log(
+  "Design判定 = " +
+  ((Date.now() - t2) / 1000).toFixed(1) +
+  " 秒"
+);
+//==================================
+// 投稿対象取得
+//==================================
+
+function getTargetProducts_() {
+
+  const products =
+    getProductList_().filter(function(product){
+
+      return (
+        product["投稿"] != "済" &&
+        (
+          product["公開"] === true ||
+          product["公開"] === "TRUE" ||
+          product["公開"] === "公開中"
+        )
+      );
+
+    });
+
+  return products;
+
+}
+
+
