@@ -1,3 +1,4 @@
+
 //==================================
 // 背景判定
 //==================================
@@ -36,17 +37,27 @@ function getBackgroundPublicId_(product) {
   // EVENT
   //---------------------------------
 
-  if (isEventPeriod_()) {
+if (
 
-    Logger.log(
+  isEventPeriod_() &&
 
-      "EVENT Background"
+  SALE_ITEMS.indexOf(
 
-    );
+    product.item.name
 
-    return CONFIG.BACKGROUND_EVENT;
+  ) >= 0
 
-  }
+) {
+
+  Logger.log(
+
+    "EVENT Background"
+
+  );
+
+  return CONFIG.BACKGROUND_EVENT;
+
+}
 
   //---------------------------------
   // NORMAL
@@ -59,6 +70,7 @@ function getBackgroundPublicId_(product) {
   );
 
   return CONFIG.BACKGROUND_BASE;
+
 
 }
 
@@ -73,15 +85,15 @@ function buildSuzuriImageUrl_(product) {
   requireConfigValue_("CLOUD_NAME");
 
   const publicId =
-    uploadSuzuriImageToCloudinary_(product);
+  uploadSuzuriImageToCloudinary_(product);
 
-  const overlay =
-    publicId.replace(/\//g, ":");
+const overlay =
+  publicId.replace(/\//g, ":");
 
-  const background =
-  getBackgroundPublicId_();
+const background =
+  getBackgroundPublicId_(product);
 
-  return (
+return (
 
     "https://res.cloudinary.com/" +
 
@@ -96,15 +108,18 @@ function buildSuzuriImageUrl_(product) {
     "/" +
 
     // 商品画像
-    "l_" +
-    overlay +
-    ",c_fit,w_" +
-    CONFIG.PRODUCT_IMAGE_WIDTH +
-    ",h_" +
-    CONFIG.PRODUCT_IMAGE_HEIGHT +
-    ",g_center/" +
+   "l_" +
+overlay +
+"/" +
 
-    "fl_layer_apply/" +
+
+"c_fit,w_" +
+CONFIG.PRODUCT_IMAGE_WIDTH +
+",h_" +
+CONFIG.PRODUCT_IMAGE_HEIGHT +
+",g_center/" +
+
+"fl_layer_apply/" +
 
     background
 
