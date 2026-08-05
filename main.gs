@@ -1,63 +1,3 @@
-//==================================
-// Main
-//==================================
-
-function runSuzuriAutoPromotion() {
-
-  Logger.log("===== SUZURI START =====");
-
-  checkConfig_();
-
-  Logger.log(
-
-    "POST MODE : " +
-
-    CONFIG.POST_MODE
-
-  );
-
-  const products =
-    getTargetProducts_();
-
-  if (!products.length) {
-
-    Logger.log("投稿対象がありません。");
-
-    return;
-
-  }
-
-  // 以下はそのまま…
-
-  const count =
-    Math.min(
-      CONFIG.POSTS_PER_RUN,
-      products.length
-    );
-
-  for (
-    let i = 0;
-    i < count;
-    i++
-  ) {
-
-    processProduct_(
-
-      createProductObject_(
-
-        products[i]
-
-      )
-
-    );
-
-  }
-
-  Logger.log("===== SUZURI END =====");
-
-}
-
-
 
 //==================================
 // 商品処理
@@ -104,7 +44,9 @@ function processProduct_(product) {
     // 投稿済み
     //-----------------------
 
-    markPosted_(product);
+    markPosted_(product.id);
+
+    addPostedHistory_(product);
 
     //-----------------------
     // Log
@@ -174,143 +116,103 @@ function processProduct_(product) {
 
 }
 
-
 //==================================
-// テスト
+// 商品一覧更新 → 投稿開始
 //==================================
 
-function testSuzuri() {
+function updateAndRunSuzuri(){
 
-  const product =
+  Logger.log("商品一覧更新開始");
 
-    createProductObject_(
+  getAllSuzuriProducts();
 
-      getSuzuriProducts_()[0]
+  Logger.log("投稿開始");
 
-    );
-
-  logJson_(product);
- Logger.log(product.title);
-Logger.log(product.designKey);
-Logger.log(product.pngSampleImageUrl);
+  runSuzuriAutoPromotion();
 
 }
 
-
-
-function testGemini() {
-
-  const product =
-
-    createProductObject_(
-
-      getSuzuriProducts_()[0]
-
-    );
-
-  logJson_(
-
-    generateSuzuriContent_(
-
-      product
-
-    )
-
-  );
-
-}
-
-
-
 //==================================
-// Cloudinary テスト
+// 配列シャッフル
 //==================================
 
-function testCloudinary() {
+function shuffleArray_(array){
 
-  const products =
-    getSuzuriProducts_();
+  for(let i=array.length-1;i>0;i--){
 
-  if (products.length == 0) {
+    const j =
+      Math.floor(
+        Math.random()*(i+1)
+      );
 
-    throw new Error(
-      "商品がありません。"
-    );
+    const tmp = array[i];
+
+    array[i] = array[j];
+
+    array[j] = tmp;
 
   }
 
-  const product =
-    createProductObject_(
-      products[0]
-    );
-
-  Logger.log(product);
-
-  const publicId =
-    uploadSuzuriImageToCloudinary_(
-      product
-    );
-
-  Logger.log(
-    "Public ID : " +
-    publicId
-  );
-
-  const imageUrl =
-    buildSuzuriImageUrl_(
-      product
-    );
-
-  Logger.log(
-    "完成画像URL"
-  );
-
-  Logger.log(
-    imageUrl
-  );
+  return array;
 
 }
 
-
-
 //==================================
-// Buffer テスト
+// 全商品投稿済みならリセット
 //==================================
 
-function testBuffer() {
+function resetPostedIfFinished_(){
 
-  const product =
+  const sheet =
+    getProductSheet_();
 
-    createProductObject_(
+  const values =
+    sheet.getDataRange().getValues();
 
-      getSuzuriProducts_()[0]
+  const header =
+    values[0];
 
-    );
+  const postCol =
+    header.indexOf("投稿");
 
-  const content =
+  const dateCol =
+    header.indexOf("投稿日時");
 
-    generateSuzuriContent_(
+  let remain = 0;
 
-      product
+  for(let i=1;i<values.length;i++){
 
-    );
+    if(values[i][postCol] != "済"){
 
-  const imageUrl =
+      remain++;
 
-    buildSuzuriImageUrl_(
+    }
 
-      product
+  }
 
-    );
+  if(remain > 0){
 
-  postToBuffer_(
+    return;
 
-    product,
+  }
 
-    content,
+  Logger.log("全商品投稿済み → リセット開始");
 
-    imageUrl
+  for(let i=1;i<values.length;i++){
 
-  );
+    sheet.getRange(i+1,postCol+1)
+         .setValue("");
+
+    if(dateCol >= 0){
+
+      sheet.getRange(i+1,dateCol+1)
+           .setValue("");
+
+    }
+
+  }
+
+  Logger.log("投稿管理をリセットしました");
 
 }
+
