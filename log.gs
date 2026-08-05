@@ -1,3 +1,5 @@
+
+
 //==================================
 // Log Sheet
 //==================================
@@ -17,23 +19,25 @@ function getLogSheet_() {
 
     sheet.appendRow([
 
-      "日時",
+  "日時",
 
-      "商品ID",
+  "商品ID",
 
-      "商品名",
+  "DesignID",
 
-      "投稿モード",
+  "商品名",
 
-      "価格",
+  "投稿モード",
 
-      "セール価格",
+  "価格",
 
-      "画像URL",
+  "セール価格",
 
-      "結果"
+  "画像URL",
 
-    ]);
+  "結果"
+
+]);
 
   }
 
@@ -61,28 +65,29 @@ function saveLog_(
 
   getLogSheet_().appendRow([
 
-    new Date(),
+  new Date(),
 
-    product.id,
+  product.id,
 
-    product.title,
+  product.designKey,
 
-    CONFIG.POST_MODE,
+  product.title,
 
-    product.priceWithTax ||
+  CONFIG.POST_MODE,
 
-    product.price ||
+  product.priceWithTax ||
 
-    "",
+  product.price ||
 
-    product.discountedPriceWithTax ||
+  "",
 
-    "",
+  product.discountedPriceWithTax ||
 
-    imageUrl,
+  "",
 
-    result
+  imageUrl,
 
-  ]);
+  result
 
+]);
 }
