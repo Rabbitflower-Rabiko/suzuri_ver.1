@@ -58,3 +58,4 @@ function checkConfig_() {
   Logger.log("CONFIGチェック OK");
 
 }
+
