@@ -56,17 +56,15 @@ const cloudCol =
 
 function markCloudinaryUploaded_(productId){
 
-  const sheet =
-    getProductSheet_();
+  const sheet = getProductSheet_();
 
-  const values =
-    sheet.getDataRange().getValues();
+  const values = sheet.getDataRange().getValues();
 
-  const idCol =
-  header.indexOf("商品ID");
+  const header = values[0];   // ← この行を追加
 
-const cloudCol =
-  header.indexOf("Cloudinary");
+  const idCol = header.indexOf("商品ID");
+  const cloudCol = header.indexOf("Cloudinary");
+
 
   for(let i=1;i<values.length;i++){
 

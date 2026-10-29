@@ -1,30 +1,5 @@
 
 
-const t1 = Date.now();
-
-//==================================
-// Main
-//==================================
-const allProducts = getProductList_();
-
-Logger.log("全商品数=" + allProducts.length);
-Logger.log(allProducts[0]);
-
-let products = allProducts.filter(function(product){
-
-  return (
-    product["投稿"] != "済" &&
-    String(product["公開"]) == "TRUE"
-  );
-
-});
-
-Logger.log(
-  "商品一覧取得 = " +
-  ((Date.now() - t1) / 1000).toFixed(1) +
-  " 秒"
-);
-
 //==================================
 // SUZURI 自動投稿
 //==================================
@@ -51,9 +26,14 @@ const start = Date.now();
         product["公開"] === true ||
         String(product["公開"]).toLowerCase() == "true";
 
+      const isSecret =
+        product["シークレット"] === true ||
+        String(product["シークレット"]).toLowerCase() == "true";
+
       return (
         product["投稿"] != "済" &&
-        isPublic
+        isPublic &&
+        !isSecret
       );
 
     });
@@ -540,8 +520,31 @@ function getSuzuriProducts_() {
   );
 
   return allProducts;
+  
 
 }
+
+  function debugCheckProduct() {
+
+  const url =
+    "https://suzuri.jp/api/v1/products/67211801";
+
+  const response =
+    UrlFetchApp.fetch(url, {
+
+      headers: {
+        Authorization:
+          "Bearer " + CONFIG.SUZURI_ACCESS_TOKEN
+      },
+
+      muteHttpExceptions: true
+
+    });
+
+  Logger.log(response.getContentText());
+
+}
+
 
 //==================================
 // 商品一覧更新
@@ -721,31 +724,9 @@ function getRecentDesignIds_(){
 
 }
 
-const t2 = Date.now();
-//==================================
-// Design重複除外
-//==================================
 
-function removeRecentDesigns_(products){
 
-  const recent =
-    getRecentDesignIds_();
 
-  return products.filter(function(product){
-
-    return recent.indexOf(
-      String(product["DesignID"])
-    )==-1;
-
-  });
-
-}
-
-Logger.log(
-  "Design判定 = " +
-  ((Date.now() - t2) / 1000).toFixed(1) +
-  " 秒"
-);
 //==================================
 // 投稿対象取得
 //==================================
@@ -757,6 +738,7 @@ function getTargetProducts_() {
 
       return (
         product["投稿"] != "済" &&
+          !isSecret &&        // ← 追加
         (
           product["公開"] === true ||
           product["公開"] === "TRUE" ||

@@ -179,11 +179,18 @@ function setLastPostedProduct_(productId) {
 
 
 //==================================
-// Designが最近投稿されたか
-//（直近投稿数で判定）
+// Postedシートの直近デザインをまとめて取得（キャッシュ）
 //==================================
 
-function isRecentDesign_(designKey) {
+let _recentDesignCache_ = null;
+
+function getRecentDesignSet_() {
+
+  if (_recentDesignCache_) {
+
+    return _recentDesignCache_;
+
+  }
 
   const sheet =
     getPostedSheet_();
@@ -191,16 +198,13 @@ function isRecentDesign_(designKey) {
   const lastRow =
     sheet.getLastRow();
 
-  Logger.log("Posted sheet = " + sheet.getName());
-  Logger.log("LastRow = " + lastRow);
-
   if (lastRow <= 1) {
 
-    return false;
+    _recentDesignCache_ = new Set();
+
+    return _recentDesignCache_;
 
   }
-
-  // 以下そのまま
 
   const count =
     Math.min(
@@ -216,27 +220,30 @@ function isRecentDesign_(designKey) {
       1
     ).getValues();
 
-  const recent =
-    values.flat().map(String);
+  _recentDesignCache_ =
+    new Set(values.flat().map(String));
 
   Logger.log(
-    "DesignCheck : " +
-    designKey +
-    " / Recent = " +
-    JSON.stringify(recent) +
-    " / Result = " +
-    recent.includes(String(designKey))
+    "直近デザイン一覧 = " +
+    JSON.stringify(Array.from(_recentDesignCache_))
   );
 
-  return recent.includes(String(designKey));
+  return _recentDesignCache_;
 
 }
 
-
 //==================================
-// Item 7日以内
+// Designが最近投稿されたか
 //==================================
 
+function isRecentDesign_(designKey) {
+
+  const recent =
+    getRecentDesignSet_();
+
+  return recent.has(String(designKey));
+
+}
 //==================================
 // Itemが最近投稿されたか
 //==================================
